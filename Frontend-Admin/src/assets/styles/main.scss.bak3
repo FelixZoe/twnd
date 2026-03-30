@@ -1,0 +1,108 @@
+@use './element-ui.scss';
+
+* {
+  box-sizing: border-box;
+  /* 防止手机端点击后出现蓝色方框 */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    'Noto Sans',
+    'PingFang SC',
+    'Microsoft YaHei',
+    sans-serif;
+  background-color: #fafafa;
+  color: #121212;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 禁止 iOS 上的 focus 蓝色外框 */
+*:focus {
+  outline: none;
+}
+
+/* 确保 focus-visible 仍然有无障碍提示 (键盘用户) */
+*:focus-visible {
+  outline: 2px solid #121212;
+  outline-offset: 2px;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+}
+
+/* ---- Scrollbar 美化 ---- */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d0d0d0;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #b0b0b0;
+}
+
+/* ---- 通用页面样式 ---- */
+.page-container {
+  padding: 24px;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #121212;
+}
+
+.muted-text {
+  color: #666;
+}
+
+/* ---- Selection color ---- */
+::selection {
+  background: rgba(18, 18, 18, 0.1);
+  color: #121212;
+}

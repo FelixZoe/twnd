@@ -1,0 +1,571 @@
+<!-- build: 20260329-v2 -->
+<script setup>
+import { ref, computed, watch, onMounted, onUnmounted } from "vue"
+import { useRoute } from "vue-router"
+import { useUserStore } from "@/stores"
+
+const route = useRoute()
+const userStore = useUserStore()
+
+/** 侧边栏是否收起（桌面端） */
+const collapsed = ref(false)
+
+/** 移动端侧边栏是否展开 */
+const mobileMenuOpen = ref(false)
+
+/** 是否为移动端 */
+const isMobile = ref(false)
+
+const checkMobile = () => {
+  isMobile.value = window.innerWidth <= 768
+  if (!isMobile.value) mobileMenuOpen.value = false
+}
+
+onMounted(() => {
+  checkMobile()
+  window.addEventListener("resize", checkMobile)
+})
+onUnmounted(() => {
+  window.removeEventListener("resize", checkMobile)
+})
+
+const activeMenu = computed(() => route.path)
+
+/** 文章编辑页需要全高无内边距布局 */
+const isEditorPage = computed(() => route.path.startsWith("/article/edit"))
+
+/** 移动端点击菜单项后自动关闭 */
+watch(route, () => {
+  if (isMobile.value) mobileMenuOpen.value = false
+})
+
+/** 分组导航项 */
+const navGroups = [
+  {
+    label: "概览",
+    items: [
+      { path: "/dashboard", icon: "icon-yibiaopan", label: "仪表盘" },
+    ],
+  },
+  {
+    label: "内容管理",
+    items: [
+      { path: "/article/list", icon: "icon-bianjiwenzhang_huaban", label: "文章管理" },
+      { path: "/category", icon: "icon-folder", label: "分类 / 标签" },
+      { path: "/music", icon: "icon-music", label: "音乐管理" },
+      { path: "/file-library", icon: "icon-image-fill", label: "文件库" },
+    ],
+  },
+  {
+    label: "互动管理",
+    items: [
+      { path: "/comment", icon: "icon-comment", label: "评论管理" },
+      { path: "/message", icon: "icon-liuyan", label: "留言管理" },
+      { path: "/rss", icon: "icon-rss", label: "RSS 订阅" },
+    ],
+  },
+  {
+    label: "站点生态",
+    items: [
+      { path: "/friend-link", icon: "icon-link", label: "友链管理" },
+    ],
+  },
+  {
+    label: "数据统计",
+    items: [
+      { path: "/visitor", icon: "icon-user", label: "访客管理" },
+      { path: "/view-record", icon: "icon-eye", label: "浏览记录" },
+      { path: "/operation-log", icon: "icon-wj-rz", label: "操作日志" },
+    ],
+  },
+  {
+    label: "系统",
+    items: [
+      { path: "/profile", icon: "icon-iconfontprofile", label: "个人资料" },
+      { path: "/settings", icon: "icon-setting", label: "系统设置" },
+    ],
+  },
+]
+
+const handleLogout = () => {
+  ElMessageBox.confirm("确认退出登录？", "提示", {
+    confirmButtonText: "退出",
+    cancelButtonText: "取消",
+    type: "warning",
+  }).then(() => {
+    userStore.logoutAction()
+  })
+}
+</script>
+
+<template>
+  <div class="admin-shell">
+    <!-- 移动端遮罩 -->
+    <div
+      v-if="isMobile && mobileMenuOpen"
+      class="sidebar-overlay"
+      @click="mobileMenuOpen = false"
+    />
+
+    <!-- 左侧菜单 -->
+    <aside
+      :class="[
+        'sidebar',
+        { collapsed: !isMobile && collapsed },
+        { 'mobile-open': isMobile && mobileMenuOpen },
+        { 'mobile-hidden': isMobile && !mobileMenuOpen }
+      ]"
+    >
+      <div class="sidebar-logo">
+        <span v-if="isMobile || !collapsed" class="logo-text">管理控制台</span>
+        <span v-else class="logo-icon">
+          <span class="iconfont icon-guanliduan" />
+        </span>
+        <!-- 移动端关闭按钮 -->
+        <button v-if="isMobile" class="mobile-close-btn" @click="mobileMenuOpen = false">
+          <span class="iconfont icon-ban" />
+        </button>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div
+          v-for="(group, gi) in navGroups"
+          :key="gi"
+          class="nav-group"
+        >
+          <div v-if="isMobile || !collapsed" class="nav-group-label">{{ group.label }}</div>
+          <div v-else-if="gi > 0" class="nav-group-divider" />
+
+          <router-link
+            v-for="item in group.items"
+            :key="item.path"
+            :to="item.path"
+            :class="['nav-item', { active: activeMenu.startsWith(item.path) }]"
+          >
+            <span :class="['iconfont', item.icon]" />
+            <span v-if="isMobile || !collapsed" class="nav-label">{{ item.label }}</span>
+          </router-link>
+        </div>
+      </nav>
+
+      <!-- 桌面端收起按钮 -->
+      <button v-if="!isMobile" class="collapse-btn" @click="collapsed = !collapsed">
+        <span
+          :class="[
+            'iconfont',
+            collapsed ? 'icon-arrow-right-bold' : 'icon-arrow-left-bold',
+          ]"
+        />
+      </button>
+    </aside>
+
+    <!-- 右侧主区域 -->
+    <div class="main-wrapper">
+      <!-- 顶部栏 -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <!-- 移动端汉堡按钮 -->
+          <button v-if="isMobile" class="hamburger-btn" @click="mobileMenuOpen = !mobileMenuOpen">
+            <span class="hamburger-line" />
+            <span class="hamburger-line" />
+            <span class="hamburger-line" />
+          </button>
+          <el-breadcrumb separator="/" class="topbar-breadcrumb">
+            <el-breadcrumb-item :to="{ path: '/dashboard' }">首页</el-breadcrumb-item>
+            <el-breadcrumb-item>{{ $route.meta.title }}</el-breadcrumb-item>
+          </el-breadcrumb>
+        </div>
+        <div class="topbar-right">
+          <span class="user-name">
+            <span class="user-avatar">
+              <span class="iconfont icon-user" />
+            </span>
+            <span class="user-name-text">{{ userStore.userInfo?.nickname || "管理员" }}</span>
+          </span>
+          <button class="logout-btn" @click="handleLogout">
+            <span class="iconfont icon-logout" />
+            <span class="logout-text">退出</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- 页面内容 -->
+      <main :class="['page-main', { 'editor-page': isEditorPage }]">
+        <router-view v-slot="{ Component }">
+          <transition name="page-fade" mode="out-in">
+            <component :is="Component" :key="$route.fullPath" />
+          </transition>
+        </router-view>
+      </main>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+/* ======== 全局 ======== */
+.admin-shell {
+  display: flex;
+  height: 100vh;
+  background-color: #fafafa;
+  overflow: hidden;
+}
+
+/* ---- 侧边栏 ---- */
+.sidebar {
+  width: 230px;
+  background: #ffffff;
+  border-right: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.28s cubic-bezier(.4,0,.2,1), transform 0.3s ease;
+  flex-shrink: 0;
+  z-index: 1001;
+}
+
+.sidebar.collapsed {
+  width: 64px;
+}
+
+.sidebar-logo {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #121212;
+  letter-spacing: 1.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  padding: 0 20px;
+  gap: 8px;
+  background: #fff;
+}
+
+.logo-icon .iconfont {
+  font-size: 22px;
+  color: #121212;
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: 12px 8px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ---- 分组 ---- */
+.nav-group {
+  margin-bottom: 6px;
+}
+
+.nav-group-label {
+  padding: 14px 14px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  user-select: none;
+}
+
+.nav-group-divider {
+  height: 1px;
+  background: #e0e0e0;
+  margin: 8px 14px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  margin: 2px 0;
+  color: #666;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  border-radius: 10px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nav-item:hover {
+  background-color: #f0f0f0;
+  color: #121212;
+}
+
+/* ★ 新的激活样式：柔和背景 + 左侧圆角色条 —— 不再使用黑色 inset box-shadow */
+.nav-item.active {
+  background-color: #f0f0f0;
+  color: #121212;
+  font-weight: 600;
+  position: relative;
+}
+
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 18px;
+  border-radius: 3px;
+  background: #121212;
+  transition: height 0.2s ease;
+}
+
+.nav-item .iconfont {
+  font-size: 17px;
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+  transition: transform 0.15s;
+}
+
+.nav-item:hover .iconfont {
+  transform: scale(1.08);
+}
+
+.collapse-btn {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-top: 1px solid #e0e0e0;
+  background: transparent;
+  cursor: pointer;
+  color: #999;
+  transition: color 0.18s, background 0.18s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.collapse-btn:hover {
+  color: #121212;
+  background: #f0f0f0;
+}
+
+/* ---- 移动端关闭按钮 ---- */
+.mobile-close-btn {
+  margin-left: auto;
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #999;
+  cursor: pointer;
+  padding: 4px;
+  transition: color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-close-btn:hover {
+  color: #121212;
+}
+
+/* ---- 遮罩 ---- */
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---- 顶部栏 ---- */
+.main-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.topbar {
+  height: 64px;
+  background: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.user-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #666;
+}
+
+.user-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #f0f0f0;
+  border: 1px solid #e0e0e0;
+  flex-shrink: 0;
+}
+
+.user-avatar .iconfont {
+  font-size: 15px;
+  color: #666;
+}
+
+.logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 7px 14px;
+  font-size: 13px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.logout-btn:hover {
+  border-color: #121212;
+  color: #121212;
+  background: #f0f0f0;
+}
+
+/* ---- 汉堡按钮 ---- */
+.hamburger-btn {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hamburger-line {
+  width: 20px;
+  height: 2px;
+  background: #121212;
+  border-radius: 1px;
+  transition: all 0.2s;
+}
+
+/* ---- 主内容 ---- */
+.page-main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.page-main.editor-page {
+  padding: 0;
+  overflow: hidden;
+}
+
+/* ---- 路由切换过渡 ---- */
+.page-fade-enter-active,
+.page-fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.page-fade-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.page-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+/* ======== 移动端适配 ======== */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 268px;
+    transform: translateX(-100%);
+    box-shadow: none;
+  }
+
+  .sidebar.mobile-open {
+    transform: translateX(0);
+    box-shadow: 6px 0 28px rgba(0, 0, 0, 0.14);
+  }
+
+  .sidebar.mobile-hidden {
+    transform: translateX(-100%);
+  }
+
+  .topbar {
+    padding: 0 12px;
+    height: 54px;
+  }
+
+  .topbar-breadcrumb {
+    font-size: 13px;
+  }
+
+  .user-name-text {
+    display: none;
+  }
+
+  .logout-text {
+    display: none;
+  }
+
+  .logout-btn {
+    padding: 6px 8px;
+  }
+
+  .topbar-right {
+    gap: 8px;
+  }
+
+  .page-main {
+    padding: 12px;
+  }
+
+  .nav-item {
+    padding: 12px 18px;
+    font-size: 15px;
+  }
+}
+</style>

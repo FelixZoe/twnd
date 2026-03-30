@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="cc.felixzoe.mapper.TravellingSiteMapper">
+    <insert id="insert">
+        insert into travelling_sites (name, url, description, tag, is_active, sort, create_time, update_time)
+        values (#{name}, #{url}, #{description}, #{tag}, #{isActive}, #{sort}, #{createTime}, #{updateTime})
+    </insert>
+    <update id="update">
+        update travelling_sites
+        <set>
+            <if test="name != null">name = #{name},</if>
+            <if test="url != null">url = #{url},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="tag != null">tag = #{tag},</if>
+            <if test="isActive != null">is_active = #{isActive},</if>
+            <if test="sort != null">sort = #{sort},</if>
+            <if test="updateTime != null">update_time = #{updateTime}</if>
+        </set>
+        where id = #{id}
+    </update>
+    <delete id="batchDelete">
+        delete from travelling_sites where id in
+        <foreach collection="list" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

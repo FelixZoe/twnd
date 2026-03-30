@@ -1,0 +1,156 @@
+:root {
+  --el-color-primary: #121212;
+  --el-color-primary-light-3: #3a3a3a;
+  --el-color-primary-light-5: #5a5a5a;
+  --el-color-primary-light-7: #8a8a8a;
+  --el-color-primary-light-8: #b8b8b8;
+  --el-color-primary-light-9: #e8e8e8;
+  --el-color-primary-dark-2: #0a0a0a;
+
+  --el-text-color-primary: #121212;
+  --el-text-color-regular: #666666;
+  --el-text-color-secondary: #999999;
+  --el-text-color-placeholder: #c0c0c0;
+
+  --el-border-color: #e0e0e0;
+  --el-border-color-light: #e8e8e8;
+  --el-border-color-lighter: #f0f0f0;
+
+  --el-bg-color: #ffffff;
+  --el-bg-color-page: #fafafa;
+  --el-fill-color: #f5f5f5;
+  --el-fill-color-light: #fafafa;
+
+  --el-border-radius-base: 10px;
+  --el-border-radius-small: 8px;
+  --el-border-radius-round: 12px;
+
+  --el-font-size-base: 14px;
+}
+
+.el-button {
+  font-weight: 500;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.el-button:active {
+  transform: scale(0.98);
+}
+
+.el-card {
+  border-radius: 14px;
+  border-color: #e0e0e0;
+  box-shadow: none;
+  transition: box-shadow 0.2s ease;
+}
+
+.el-card:hover {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.el-table {
+  --el-table-border-color: #e0e0e0;
+  --el-table-header-bg-color: #fafafa;
+}
+
+.el-table th {
+  font-weight: 600;
+  color: #121212;
+}
+
+.el-table td {
+  color: #666;
+}
+
+.el-table--striped .el-table__body tr.el-table__row--striped td {
+  background: #fafafa;
+}
+
+/* ---- Input 优化 ---- */
+.el-input__wrapper {
+  border-radius: 10px;
+  transition: box-shadow 0.2s ease;
+}
+
+/* ---- Tag 简约风 ---- */
+.el-tag {
+  --el-tag-bg-color: #f5f5f5;
+  --el-tag-border-color: #e0e0e0;
+  --el-tag-text-color: #121212;
+  --el-tag-hover-color: #666;
+  font-weight: 500;
+  border-radius: 8px;
+}
+
+.el-tag--success {
+  --el-tag-bg-color: #f0f9f4;
+  --el-tag-border-color: #67a37a;
+  --el-tag-text-color: #2d6a3f;
+}
+
+.el-tag--warning {
+  --el-tag-bg-color: #fdf6ec;
+  --el-tag-border-color: #c89b3c;
+  --el-tag-text-color: #7a5d1d;
+}
+
+.el-tag--danger {
+  --el-tag-bg-color: #fef0f0;
+  --el-tag-border-color: #c45656;
+  --el-tag-text-color: #8b2c2c;
+}
+
+.el-tag--info {
+  --el-tag-bg-color: #f5f5f5;
+  --el-tag-border-color: #c0c0c0;
+  --el-tag-text-color: #666;
+}
+
+/* ---- Dialog 优化 ---- */
+.el-dialog {
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.el-dialog__header {
+  border-bottom: 1px solid #e0e0e0;
+  padding: 18px 24px;
+  margin-right: 0;
+}
+
+.el-dialog__title {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.el-dialog__body {
+  padding: 20px 24px;
+}
+
+.el-dialog__footer {
+  border-top: 1px solid #e0e0e0;
+  padding: 14px 24px;
+}
+
+/* ---- Pagination 优化 ---- */
+.el-pagination {
+  --el-pagination-button-bg-color: #fff;
+}
+
+.el-pagination .btn-prev,
+.el-pagination .btn-next {
+  border-radius: 8px;
+}
+
+/* ---- Message Box 优化 ---- */
+.el-message-box {
+  border-radius: 16px;
+}
+
+/* ---- Select Dropdown ---- */
+.el-select-dropdown {
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}

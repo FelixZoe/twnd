@@ -1,0 +1,235 @@
+/* ===== Admin Theme - Element UI Overrides ===== */
+/* Build: 20260329-v4 · Matches front-end style */
+
+:root {
+  /* ---- Primary palette: Black (matches darker.one --el-color-primary: #000000) ---- */
+  --el-color-primary: #000000;
+  --el-color-primary-light-3: #303133;
+  --el-color-primary-light-5: #606266;
+  --el-color-primary-light-7: #909399;
+  --el-color-primary-light-8: #c0c4cc;
+  --el-color-primary-light-9: #e4e7ed;
+  --el-color-primary-dark-2: #000000;
+
+  /* Text (matches front-end) */
+  --el-text-color-primary: #303133;
+  --el-text-color-regular: #606266;
+  --el-text-color-secondary: #909399;
+  --el-text-color-placeholder: #c0c4cc;
+
+  /* Borders (matches front-end) */
+  --el-border-color: #e4e7ed;
+  --el-border-color-light: #ebeef5;
+  --el-border-color-lighter: #f2f6fc;
+
+  /* Backgrounds (matches front-end) */
+  --el-bg-color: #ffffff;
+  --el-bg-color-page: #f5f7fa;
+  --el-fill-color: #f5f7fa;
+  --el-fill-color-light: #fafafa;
+
+  /* Radius */
+  --el-border-radius-base: 6px;
+  --el-border-radius-small: 4px;
+  --el-border-radius-round: 12px;
+
+  --el-font-size-base: 14px;
+}
+
+/* ======== Button ======== */
+.el-button {
+  font-weight: 500;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.el-button:active {
+  transform: scale(0.97);
+}
+
+.el-button--primary {
+  background: #000000;
+  border-color: #000000;
+  box-shadow: none;
+}
+
+.el-button--primary:hover,
+.el-button--primary:focus {
+  background: #303133;
+  border-color: #303133;
+  box-shadow: none;
+}
+
+/* ======== Card ======== */
+.el-card {
+  border-radius: 12px;
+  border: 1px solid #e4e7ed;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.3s ease;
+}
+
+.el-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+/* ======== Table ======== */
+.el-table {
+  --el-table-border-color: #ebeef5;
+  --el-table-header-bg-color: #fafafa;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.el-table th {
+  font-weight: 600;
+  color: #303133;
+  font-size: 13px;
+}
+
+.el-table td {
+  color: #606266;
+}
+
+.el-table--striped .el-table__body tr.el-table__row--striped td {
+  background: #fafafa;
+}
+
+.el-table .el-table__row:hover > td {
+  background: #f5f7fa !important;
+}
+
+/* ======== Input ======== */
+.el-input__wrapper {
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 0 1px #e4e7ed inset !important;
+}
+
+.el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px #c0c4cc inset !important;
+}
+
+.el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1px #000000 inset !important;
+}
+
+/* ======== Tag ======== */
+.el-tag {
+  font-weight: 500;
+  border-radius: 4px;
+  border: none;
+  padding: 0 10px;
+}
+
+.el-tag--success {
+  --el-tag-bg-color: #f0f9eb;
+  --el-tag-text-color: #529b2e;
+}
+
+.el-tag--warning {
+  --el-tag-bg-color: #fdf6ec;
+  --el-tag-text-color: #b88230;
+}
+
+.el-tag--danger {
+  --el-tag-bg-color: #fef0f0;
+  --el-tag-text-color: #c45656;
+}
+
+.el-tag--info {
+  --el-tag-bg-color: #f4f4f5;
+  --el-tag-text-color: #73767a;
+}
+
+/* ======== Dialog ======== */
+.el-dialog {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 12px 32px 4px rgba(0, 0, 0, 0.04), 0 8px 20px rgba(0, 0, 0, 0.08);
+}
+
+.el-dialog__header {
+  border-bottom: 1px solid #ebeef5;
+  padding: 20px 24px;
+  margin-right: 0;
+}
+
+.el-dialog__title {
+  font-weight: 600;
+  font-size: 16px;
+  color: #303133;
+}
+
+.el-dialog__body {
+  padding: 24px;
+}
+
+.el-dialog__footer {
+  border-top: 1px solid #ebeef5;
+  padding: 16px 24px;
+}
+
+/* ======== Pagination ======== */
+.el-pagination {
+  --el-pagination-button-bg-color: #fff;
+}
+
+.el-pagination .btn-prev,
+.el-pagination .btn-next {
+  border-radius: 4px;
+}
+
+.el-pagination .el-pager li {
+  border-radius: 4px;
+}
+
+.el-pagination .el-pager li.is-active {
+  background: #000000;
+  color: #fff;
+}
+
+/* ======== Message Box ======== */
+.el-message-box {
+  border-radius: 12px;
+  box-shadow: 0 12px 32px 4px rgba(0, 0, 0, 0.04), 0 8px 20px rgba(0, 0, 0, 0.08);
+}
+
+/* ======== Select ======== */
+.el-select-dropdown {
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  border: 1px solid #ebeef5;
+}
+
+/* ======== Breadcrumb ======== */
+.el-breadcrumb__inner {
+  font-weight: 500;
+}
+
+/* ======== Tabs ======== */
+.el-tabs__item.is-active {
+  font-weight: 600;
+  color: #000000 !important;
+}
+
+.el-tabs__active-bar {
+  background: #000000 !important;
+}
+
+/* ======== Switch ======== */
+.el-switch.is-checked .el-switch__core {
+  background: #000000;
+  border-color: #000000;
+}
+
+/* ======== Loading ======== */
+.el-loading-spinner .circular .path {
+  stroke: #303133;
+}
+
+/* ======== Message ======== */
+.el-message {
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}

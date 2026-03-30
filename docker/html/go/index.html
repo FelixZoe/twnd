@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>开往-友链接力</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #0a0a1a; --surface: #12122a; --primary: #6366f1;
+            --primary-glow: rgba(99, 102, 241, 0.3); --accent: #22d3ee;
+            --text: #e2e8f0; --text-dim: #94a3b8;
+            --border: rgba(99, 102, 241, 0.2); --card-bg: rgba(18, 18, 42, 0.8);
+        }
+        @media (prefers-color-scheme: light) {
+            :root {
+                --bg: #f8fafc; --surface: #ffffff; --primary: #6366f1;
+                --primary-glow: rgba(99, 102, 241, 0.15); --accent: #0891b2;
+                --text: #1e293b; --text-dim: #64748b;
+                --border: rgba(99, 102, 241, 0.15); --card-bg: rgba(255, 255, 255, 0.9);
+            }
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg); color: var(--text); min-height: 100vh;
+        }
+        .bg-pattern {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(ellipse at 20% 50%, var(--primary-glow), transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(34, 211, 238, 0.1), transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(168, 85, 247, 0.1), transparent 50%);
+            pointer-events: none; z-index: 0;
+        }
+        .container { position: relative; z-index: 1; max-width: 720px; margin: 0 auto; padding: 2rem 1.5rem; }
+        .hero { text-align: center; padding: 4rem 0 2rem; }
+        .hero-icon { font-size: 4rem; margin-bottom: 1rem; display: inline-block; animation: float 3s ease-in-out infinite; }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .hero h1 {
+            font-size: 2.5rem; font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text; margin-bottom: 0.75rem;
+        }
+        .hero p { color: var(--text-dim); font-size: 1.1rem; max-width: 500px; margin: 0 auto 2rem; line-height: 1.6; }
+        .go-btn {
+            display: inline-flex; align-items: center; gap: 0.75rem;
+            padding: 1rem 2.5rem; font-size: 1.2rem; font-weight: 700; color: #fff;
+            background: linear-gradient(135deg, var(--primary), #8b5cf6);
+            border: none; border-radius: 50px; cursor: pointer;
+            transition: all 0.3s ease; box-shadow: 0 4px 20px var(--primary-glow);
+            text-decoration: none; position: relative; overflow: hidden;
+        }
+        .go-btn::before {
+            content: ""; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        .go-btn:hover::before { left: 100%; }
+        .go-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 30px var(--primary-glow); }
+        .info-section {
+            background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px;
+            padding: 2rem; margin-top: 2rem; backdrop-filter: blur(10px);
+        }
+        .info-section h2 { font-size: 1.3rem; margin-bottom: 1rem; color: var(--text); }
+        .info-section p, .info-section li { color: var(--text-dim); line-height: 1.8; font-size: 0.95rem; }
+        .info-section ul { padding-left: 1.5rem; margin-top: 0.5rem; }
+        .info-section a { color: var(--accent); text-decoration: none; }
+        .info-section a:hover { text-decoration: underline; }
+        .nav-links {
+            display: flex; justify-content: center; gap: 1.5rem; margin-top: 2rem;
+            padding-top: 1.5rem; border-top: 1px solid var(--border);
+        }
+        .nav-links a {
+            color: var(--text-dim); text-decoration: none; font-size: 0.9rem;
+            transition: color 0.2s;
+        }
+        .nav-links a:hover { color: var(--primary); }
+    </style>
+</head>
+<body>
+    <div class="bg-pattern"></div>
+    <div class="container">
+        <div class="hero">
+            <div class="hero-icon">&#x1F687;</div>
+            <h1>开往</h1>
+            <p>友链接力 —— 点击下方按钮，随机传送到一个加入开往的博客</p>
+            <a class="go-btn" href="https://www.travellings.cn/go.html" target="_blank" rel="noopener">
+                &#x1F680; 开往！随机访问
+            </a>
+        </div>
+
+        <div class="info-section">
+            <h2>&#x2753; 什么是开往？</h2>
+            <p>
+                <a href="https://www.travellings.cn/" target="_blank" rel="noopener">「开往 Travellings」</a>
+                是一个友链接力项目，旨在通过网络跳转的方式将流量引入那些鲜为人知的独立站点。
+            </p>
+            <ul>
+                <li>点击「开往」按钮，将随机跳转到另一个加入该项目的博客</li>
+                <li>像地铁一样，将你带往一个未知的站点</li>
+                <li>发现更多有趣的独立博客和个人网站</li>
+            </ul>
+        </div>
+
+        <div class="nav-links">
+            <a href="/blog/">&#x1F4DD; 博客</a>
+            <a href="/">&#x1F3E0; 首页</a>
+            <a href="https://www.travellings.cn/" target="_blank" rel="noopener">&#x1F687; 开往官网</a>
+        </div>
+    </div>
+</body>
+</html>

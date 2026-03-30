@@ -1,0 +1,197 @@
+# Docker production configuration - Optimized 2026-03-30
+# Environment variables from docker-compose
+server:
+  port: 5922
+  error:
+    include-stacktrace: never
+    include-message: never
+    whitelabel:
+      enabled: false
+  # Tomcat performance tuning
+  tomcat:
+    threads:
+      max: 200
+      min-spare: 20
+    max-connections: 8192
+    accept-count: 100
+    connection-timeout: 15000
+    max-http-form-post-size: 30MB
+    # Enable access log for monitoring
+    accesslog:
+      enabled: false
+  # Response compression
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain,text/css,application/javascript
+    min-response-size: 1024
+  # Shutdown gracefully
+  shutdown: graceful
+
+spring:
+  threads:
+    virtual:
+      enabled: true
+  main:
+    allow-circular-references: true
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  servlet:
+    multipart:
+      max-file-size: 30MB
+      max-request-size: 50MB
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${MYSQL_HOST:mysql}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:FelixZoe}?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true&cachePrepStmts=true&prepStmtCacheSize=250&prepStmtCacheSqlLimit=2048&useServerPrepStmts=true
+    username: ${MYSQL_USER:felixzoe}
+    password: ${MYSQL_PASSWORD}
+    druid:
+      # Connection pool sizing (for 2-4GB server)
+      initial-size: 5
+      min-idle: 5
+      max-active: 30
+      max-wait: 30000
+      # Connection validation
+      validation-query: SELECT 1
+      test-while-idle: true
+      test-on-borrow: false
+      test-on-return: false
+      time-between-eviction-runs-millis: 60000
+      min-evictable-idle-time-millis: 300000
+      max-evictable-idle-time-millis: 900000
+      # Keep-alive for idle connections
+      keep-alive: true
+      phy-max-use-count: 1000
+      # Performance
+      pool-prepared-statements: true
+      max-pool-prepared-statement-per-connection-size: 20
+      # Monitoring (disable stat filter for performance)
+      filters: stat,wall
+      web-stat-filter:
+        enabled: false
+      stat-view-servlet:
+        enabled: false
+      filter:
+        stat:
+          slow-sql-millis: 2000
+          log-slow-sql: true
+          merge-sql: true
+        wall:
+          enabled: true
+          config:
+            # SQL injection protection
+            multi-statement-allow: false
+            delete-allow: true
+            drop-table-allow: false
+            alter-table-allow: false
+            truncate-allow: false
+            comment-allow: true
+            select-into-allow: false
+            create-table-allow: false
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      timeout: 3000ms
+      connect-timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 4
+          max-wait: 3000ms
+          time-between-eviction-runs: 60000ms
+        shutdown-timeout: 3000ms
+  mail:
+    host: ${MAIL_HOST:smtp.qq.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:placeholder@qq.com}
+    password: ${MAIL_PASSWORD:placeholder}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connectiontimeout: 5000
+          timeout: 3000
+          writetimeout: 5000
+  mvc:
+    throw-exception-if-no-handler-found: true
+  web:
+    resources:
+      add-mappings: false
+
+felixzoe:
+  jwt:
+    secret-key: ${JWT_SECRET_KEY:felixzoe-jwt-default-secret-key}
+    ttl: ${JWT_TTL:86400000}
+    token-name: Authorization
+  alioss:
+    endpoint: ${ALIOSS_ENDPOINT:placeholder}
+    access-key-id: ${ALIOSS_ACCESS_KEY_ID:placeholder}
+    access-key-secret: ${ALIOSS_ACCESS_KEY_SECRET:placeholder}
+    bucket-name: ${ALIOSS_BUCKET_NAME:placeholder}
+  email:
+    personal: ${EMAIL_PERSONAL:FelixZoe}
+    from: ${EMAIL_FROM:placeholder@qq.com}
+  visitor:
+    verify-code: ${VISITOR_VERIFY_CODE:felixzoe2026}
+  image:
+    compress:
+      enabled: ${IMAGE_COMPRESS_ENABLED:true}
+      max-size-kb: ${IMAGE_COMPRESS_MAX_SIZE:500}
+      quality: ${IMAGE_COMPRESS_QUALITY:0.9}
+      output-format: webp
+  website:
+    title: ${WEBSITE_TITLE:FelixZoe}
+    home: ${WEBSITE_HOME:https://darker.one}
+    admin: ${WEBSITE_ADMIN:https://darker.one/admin}
+    cv: ${WEBSITE_CV:https://darker.one/cv}
+    blog: ${WEBSITE_BLOG:https://darker.one/blog}
+  local-storage:
+    path: ${LOCAL_STORAGE_PATH:/app/uploads}
+    access-url: ${LOCAL_STORAGE_ACCESS_URL:https://darker.one/uploads}
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: cc.felixzoe.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    # Performance: disable unnecessary features
+    cache-enabled: true
+    lazy-loading-enabled: true
+    aggressive-lazy-loading: false
+    default-statement-timeout: 30
+    # Use INDEX for column label
+    use-column-label: true
+
+logging:
+  level:
+    cc.felixzoe: INFO
+    cc.felixzoe.config.SecurityLogConfig: WARN
+    org.springframework.web.servlet.PageNotFound: ERROR
+    org.springframework.web: WARN
+    org.apache.tomcat: ERROR
+    cc.felixzoe.mapper: WARN
+    org.mybatis: WARN
+    org.apache.ibatis: WARN
+    com.zaxxer.hikari: WARN
+    org.springframework: WARN
+    org.hibernate: WARN
+    com.alibaba.druid: WARN
+    org.apache.coyote: ERROR
+    org.apache.catalina: ERROR
+    io.lettuce: WARN
+    SECURITY_SCAN: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  # Log file rotation
+  file:
+    name: /app/logs/felixzoe-backend.log
+  logback:
+    rollingpolicy:
+      max-file-size: 50MB
+      max-history: 15
+      total-size-cap: 500MB

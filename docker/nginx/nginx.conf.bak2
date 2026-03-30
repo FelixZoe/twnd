@@ -1,0 +1,89 @@
+user nginx;
+worker_processes auto;
+error_log /var/log/nginx/error.log warn;
+pid /var/run/nginx.pid;
+
+events {
+    worker_connections 4096;
+    multi_accept on;
+    use epoll;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for" '
+                    'rt=$request_time';
+
+    access_log /var/log/nginx/access.log main;
+
+    # ── Performance: I/O ──
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+    keepalive_requests 1000;
+    types_hash_max_size 2048;
+    server_tokens off;
+    client_max_body_size 30M;
+
+    # ── Performance: Buffers ──
+    client_body_buffer_size 16k;
+    client_header_buffer_size 1k;
+    large_client_header_buffers 4 8k;
+    output_buffers 2 32k;
+
+    # ── Performance: Open file cache ──
+    open_file_cache max=10000 inactive=60s;
+    open_file_cache_valid 30s;
+    open_file_cache_min_uses 2;
+    open_file_cache_errors on;
+
+    # ── Gzip: dynamic + static ──
+    gzip on;
+    gzip_static on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_min_length 256;
+    gzip_buffers 16 8k;
+    gzip_http_version 1.1;
+    gzip_types
+        text/plain
+        text/css
+        text/xml
+        text/javascript
+        application/json
+        application/javascript
+        application/xml
+        application/xml+rss
+        application/rss+xml
+        application/atom+xml
+        application/ld+json
+        application/manifest+json
+        application/geo+json
+        font/truetype
+        font/opentype
+        font/woff
+        font/woff2
+        application/vnd.ms-fontobject
+        image/svg+xml
+        image/x-icon;
+
+    # ── Security: hide upstream info ──
+    proxy_hide_header X-Powered-By;
+    proxy_hide_header Server;
+
+    # ── Rate limiting zones ──
+    limit_req_zone $binary_remote_addr zone=api_limit:10m rate=30r/s;
+    limit_req_zone $binary_remote_addr zone=login_limit:10m rate=3r/m;
+    limit_req_zone $binary_remote_addr zone=upload_limit:10m rate=10r/m;
+    limit_req_status 429;
+
+    # Include site configs
+    include /etc/nginx/conf.d/*.conf;
+    include /etc/nginx/sites-enabled/*;
+}

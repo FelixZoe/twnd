@@ -1,0 +1,1596 @@
+<script setup>
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { uploadFileLibrary, getFileList, getFileStats, deleteFile, batchDeleteFiles } from '@/api/file'
+
+/* ========== 状态 ========== */
+const loading = ref(false)
+const uploadLoading = ref(false)
+const fileList = ref([])
+const stats = ref([])
+const selectedFiles = ref([])
+const previewVisible = ref(false)
+const previewUrl = ref('')
+const previewType = ref('')
+const previewName = ref('')
+const previewIndex = ref(-1)
+const isDragging = ref(false)
+const viewMode = ref('grid') // grid / list
+const searchKeyword = ref('')
+const uploadProgress = ref(0)
+const uploadFileName = ref('')
+const renameVisible = ref(false)
+const renameTarget = ref(null)
+const renameNewName = ref('')
+
+const pagination = reactive({
+  page: 1,
+  pageSize: 24,
+  total: 0,
+})
+
+const filter = reactive({
+  category: '',
+})
+
+/* ========== 分类 Tab ========== */
+const categoryIcons = {
+  '': 'icon-folder',
+  image: 'icon-image-fill',
+  audio: 'icon-music',
+  video: 'icon-eye',
+  text: 'icon-bianjiwenzhang_huaban',
+  pdf: 'icon-bianjiwenzhang_huaban',
+  word: 'icon-bianjiwenzhang_huaban',
+  excel: 'icon-bianjiwenzhang_huaban',
+  archive: 'icon-folder',
+  font: 'icon-bianjiwenzhang_huaban',
+  lyric: 'icon-music',
+  other: 'icon-folder',
+}
+
+const catMap = {
+  image: '图片',
+  audio: '音频',
+  video: '视频',
+  text: '文本',
+  pdf: 'PDF',
+  word: 'Word',
+  excel: 'Excel',
+  archive: '压缩包',
+  font: '字体',
+  lyric: '歌词',
+  other: '其他',
+}
+
+const categories = computed(() => {
+  const cats = [{ label: '全部', value: '', count: 0, size: 0 }]
+  if (stats.value.length) {
+    const allStat = stats.value.find((s) => s.category === 'all')
+    if (allStat) {
+      cats[0].count = allStat.count
+      cats[0].size = allStat.size
+    }
+    stats.value
+      .filter((s) => s.category !== 'all')
+      .forEach((s) => {
+        cats.push({
+          label: catMap[s.category] || s.category,
+          value: s.category,
+          count: s.count,
+          size: s.size,
+        })
+      })
+  }
+  return cats
+})
+
+/* 总存储使用 */
+const totalUsage = computed(() => {
+  const allStat = stats.value.find((s) => s.category === 'all')
+  return allStat ? allStat.size : 0
+})
+
+/* 搜索过滤 */
+const filteredFileList = computed(() => {
+  if (!searchKeyword.value.trim()) return fileList.value
+  const kw = searchKeyword.value.toLowerCase().trim()
+  return fileList.value.filter((f) => f.name.toLowerCase().includes(kw))
+})
+
+/* 可预览列表（用于 lightbox 翻页） */
+const previewableFiles = computed(() =>
+  filteredFileList.value.filter((f) => isImage(f.extension) || isAudio(f.extension) || isVideo(f.extension))
+)
+
+/* ========== 工具函数 ========== */
+const formatSize = (bytes) => {
+  if (!bytes || bytes === 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  let i = 0
+  let size = bytes
+  while (size >= 1024 && i < units.length - 1) {
+    size /= 1024
+    i++
+  }
+  return size.toFixed(i > 0 ? 1 : 0) + ' ' + units[i]
+}
+
+const formatDate = (ts) => {
+  if (!ts) return '-'
+  const d = new Date(ts)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+const formatDateShort = (ts) => {
+  if (!ts) return '-'
+  const d = new Date(ts)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+const isImage = (ext) => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'ico', 'avif'].includes(ext)
+const isAudio = (ext) => ['mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a', 'wma'].includes(ext)
+const isVideo = (ext) => ['mp4', 'avi', 'mov', 'mkv', 'wmv', 'flv', 'webm'].includes(ext)
+
+const getFileIcon = (ext) => {
+  if (isImage(ext)) return 'icon-image-fill'
+  if (isAudio(ext)) return 'icon-music'
+  if (isVideo(ext)) return 'icon-eye'
+  if (['pdf'].includes(ext)) return 'icon-bianjiwenzhang_huaban'
+  if (['doc', 'docx'].includes(ext)) return 'icon-bianjiwenzhang_huaban'
+  if (['xls', 'xlsx'].includes(ext)) return 'icon-bianjiwenzhang_huaban'
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return 'icon-folder'
+  if (['ttf', 'otf', 'woff', 'woff2'].includes(ext)) return 'icon-bianjiwenzhang_huaban'
+  if (['lrc', 'krc'].includes(ext)) return 'icon-music'
+  if (['txt', 'md'].includes(ext)) return 'icon-bianjiwenzhang_huaban'
+  return 'icon-folder'
+}
+
+const getFileColorClass = (ext) => {
+  if (isImage(ext)) return 'color-image'
+  if (isAudio(ext)) return 'color-audio'
+  if (isVideo(ext)) return 'color-video'
+  if (['pdf'].includes(ext)) return 'color-pdf'
+  if (['doc', 'docx'].includes(ext)) return 'color-word'
+  if (['xls', 'xlsx'].includes(ext)) return 'color-excel'
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return 'color-archive'
+  return 'color-other'
+}
+
+/* ========== 数据加载 ========== */
+const fetchStats = async () => {
+  try {
+    const res = await getFileStats()
+    stats.value = res.data || []
+  } catch (e) {
+    console.error('获取统计失败', e)
+  }
+}
+
+const fetchFiles = async () => {
+  loading.value = true
+  try {
+    const params = {
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+    }
+    if (filter.category) params.category = filter.category
+    const res = await getFileList(params)
+    const data = res.data || {}
+    fileList.value = data.records || []
+    pagination.total = data.total || 0
+  } catch (e) {
+    console.error('获取文件列表失败', e)
+  } finally {
+    loading.value = false
+  }
+}
+
+/* ========== 分类切换 ========== */
+const handleCategoryChange = (cat) => {
+  filter.category = cat
+  pagination.page = 1
+  selectedFiles.value = []
+  searchKeyword.value = ''
+  fetchFiles()
+}
+
+/* ========== 分页 ========== */
+const handlePageChange = (p) => {
+  pagination.page = p
+  selectedFiles.value = []
+  fetchFiles()
+}
+
+const handleSizeChange = (s) => {
+  pagination.pageSize = s
+  pagination.page = 1
+  selectedFiles.value = []
+  fetchFiles()
+}
+
+/* ========== 选择 ========== */
+const isSelected = (file) => selectedFiles.value.includes(file.name)
+const toggleSelect = (file) => {
+  const idx = selectedFiles.value.indexOf(file.name)
+  if (idx >= 0) {
+    selectedFiles.value.splice(idx, 1)
+  } else {
+    selectedFiles.value.push(file.name)
+  }
+}
+const selectAll = () => {
+  if (selectedFiles.value.length === filteredFileList.value.length) {
+    selectedFiles.value = []
+  } else {
+    selectedFiles.value = filteredFileList.value.map((f) => f.name)
+  }
+}
+
+/* ========== 预览 & Lightbox ========== */
+const handlePreview = (file) => {
+  previewUrl.value = file.url
+  previewName.value = file.name
+  if (isImage(file.extension) || isAudio(file.extension) || isVideo(file.extension)) {
+    previewType.value = isImage(file.extension) ? 'image' : isAudio(file.extension) ? 'audio' : 'video'
+    previewIndex.value = previewableFiles.value.findIndex((f) => f.name === file.name)
+    previewVisible.value = true
+  } else {
+    window.open(file.url, '_blank')
+  }
+}
+
+const previewPrev = () => {
+  if (previewIndex.value > 0) {
+    previewIndex.value--
+    const f = previewableFiles.value[previewIndex.value]
+    previewUrl.value = f.url
+    previewName.value = f.name
+    previewType.value = isImage(f.extension) ? 'image' : isAudio(f.extension) ? 'audio' : 'video'
+  }
+}
+
+const previewNext = () => {
+  if (previewIndex.value < previewableFiles.value.length - 1) {
+    previewIndex.value++
+    const f = previewableFiles.value[previewIndex.value]
+    previewUrl.value = f.url
+    previewName.value = f.name
+    previewType.value = isImage(f.extension) ? 'image' : isAudio(f.extension) ? 'audio' : 'video'
+  }
+}
+
+const handlePreviewKeydown = (e) => {
+  if (!previewVisible.value) return
+  if (e.key === 'ArrowLeft') previewPrev()
+  if (e.key === 'ArrowRight') previewNext()
+  if (e.key === 'Escape') previewVisible.value = false
+}
+
+/* ========== 复制链接 ========== */
+const handleCopyUrl = async (file) => {
+  try {
+    await navigator.clipboard.writeText(file.url)
+    ElMessage.success('链接已复制')
+  } catch {
+    const input = document.createElement('input')
+    input.value = file.url
+    document.body.appendChild(input)
+    input.select()
+    document.execCommand('copy')
+    document.body.removeChild(input)
+    ElMessage.success('链接已复制')
+  }
+}
+
+/* ========== 下载 ========== */
+const handleDownload = (file) => {
+  const a = document.createElement('a')
+  a.href = file.url
+  a.download = file.name
+  a.target = '_blank'
+  a.rel = 'noopener noreferrer'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+}
+
+/* ========== 删除 ========== */
+const handleDelete = async (file) => {
+  try {
+    await ElMessageBox.confirm(`确认删除文件「${file.name}」？删除后不可恢复。`, '删除确认', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    await deleteFile(file.name)
+    ElMessage.success('删除成功')
+    fetchFiles()
+    fetchStats()
+  } catch (e) {
+    if (e !== 'cancel') console.error('删除失败', e)
+  }
+}
+
+const handleBatchDelete = async () => {
+  if (!selectedFiles.value.length) return
+  try {
+    await ElMessageBox.confirm(
+      `确认删除选中的 ${selectedFiles.value.length} 个文件？删除后不可恢复。`,
+      '批量删除确认',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+    await batchDeleteFiles(selectedFiles.value)
+    ElMessage.success('批量删除成功')
+    selectedFiles.value = []
+    fetchFiles()
+    fetchStats()
+  } catch (e) {
+    if (e !== 'cancel') console.error('批量删除失败', e)
+  }
+}
+
+/* ========== 上传 (含拖拽) ========== */
+const handleUpload = async (options) => {
+  uploadLoading.value = true
+  uploadFileName.value = options.file.name
+  uploadProgress.value = 0
+  try {
+    const formData = new FormData()
+    formData.append('file', options.file)
+    await uploadFileLibrary(formData)
+    uploadProgress.value = 100
+    ElMessage.success(`上传成功：${options.file.name}`)
+    fetchFiles()
+    fetchStats()
+  } catch (e) {
+    ElMessage.error(`上传失败：${options.file.name}`)
+  } finally {
+    setTimeout(() => {
+      uploadLoading.value = false
+      uploadProgress.value = 0
+      uploadFileName.value = ''
+    }, 800)
+  }
+}
+
+/* 拖拽 */
+const handleDragEnter = (e) => {
+  e.preventDefault()
+  isDragging.value = true
+}
+const handleDragLeave = (e) => {
+  e.preventDefault()
+  // 确保离开的是容器
+  if (!e.currentTarget.contains(e.relatedTarget)) {
+    isDragging.value = false
+  }
+}
+const handleDragOver = (e) => {
+  e.preventDefault()
+}
+const handleDrop = async (e) => {
+  e.preventDefault()
+  isDragging.value = false
+  const files = e.dataTransfer.files
+  if (!files.length) return
+  for (const file of files) {
+    await handleUpload({ file })
+  }
+}
+
+/* ========== 快捷键 ========== */
+onMounted(() => {
+  fetchStats()
+  fetchFiles()
+  document.addEventListener('keydown', handlePreviewKeydown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handlePreviewKeydown)
+})
+</script>
+
+<template>
+  <div
+    class="file-library"
+    @dragenter="handleDragEnter"
+    @dragleave="handleDragLeave"
+    @dragover="handleDragOver"
+    @drop="handleDrop"
+  >
+    <!-- 拖拽上传遮罩 -->
+    <Transition name="fade">
+      <div v-if="isDragging" class="drag-overlay">
+        <div class="drag-overlay-content">
+          <div class="drag-icon">
+            <span class="iconfont icon-upload"></span>
+          </div>
+          <p class="drag-title">松开鼠标上传文件</p>
+          <p class="drag-hint">支持拖拽多个文件同时上传</p>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- 上传进度条 -->
+    <Transition name="slide-down">
+      <div v-if="uploadLoading" class="upload-progress-bar">
+        <div class="upload-progress-info">
+          <span class="iconfont icon-upload"></span>
+          <span>正在上传 {{ uploadFileName }}</span>
+        </div>
+        <el-progress :percentage="uploadProgress" :stroke-width="3" :show-text="false" />
+      </div>
+    </Transition>
+
+    <!-- 头部区域：存储统计 + 操作 -->
+    <div class="header-section">
+      <div class="storage-overview">
+        <div class="storage-info">
+          <span class="storage-label">文件库</span>
+          <span class="storage-usage">{{ formatSize(totalUsage) }}</span>
+          <span class="storage-count">{{ pagination.total }} 个文件</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 分类标签 + 操作工具栏 -->
+    <div class="controls-section">
+      <div class="category-tabs">
+        <button
+          v-for="cat in categories"
+          :key="cat.value"
+          :class="['cat-tab', { active: filter.category === cat.value }]"
+          @click="handleCategoryChange(cat.value)"
+        >
+          <span class="cat-tab-label">{{ cat.label }}</span>
+          <span v-if="cat.count" class="cat-tab-badge">{{ cat.count }}</span>
+        </button>
+      </div>
+
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <el-upload
+            :show-file-list="false"
+            :http-request="handleUpload"
+            :disabled="uploadLoading"
+            multiple
+          >
+            <el-button type="primary" :loading="uploadLoading" class="upload-btn">
+              <span class="iconfont icon-upload" style="margin-right: 6px" />
+              上传文件
+            </el-button>
+          </el-upload>
+
+          <Transition name="fade">
+            <el-button
+              v-if="selectedFiles.length"
+              type="danger"
+              plain
+              @click="handleBatchDelete"
+            >
+              <span class="iconfont icon-delete" style="margin-right: 4px" />
+              删除 ({{ selectedFiles.length }})
+            </el-button>
+          </Transition>
+
+          <el-button
+            v-if="filteredFileList.length"
+            plain
+            size="default"
+            @click="selectAll"
+          >
+            {{ selectedFiles.length === filteredFileList.length ? '取消全选' : '全选' }}
+          </el-button>
+        </div>
+
+        <div class="toolbar-right">
+          <div class="search-box">
+            <span class="iconfont icon-search search-icon"></span>
+            <input
+              v-model="searchKeyword"
+              type="text"
+              placeholder="搜索文件名..."
+              class="search-input"
+            />
+          </div>
+
+          <div class="view-toggle">
+            <button
+              :class="['toggle-btn', { active: viewMode === 'grid' }]"
+              @click="viewMode = 'grid'"
+              title="网格视图"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <rect x="1" y="1" width="6" height="6" rx="1"/>
+                <rect x="9" y="1" width="6" height="6" rx="1"/>
+                <rect x="1" y="9" width="6" height="6" rx="1"/>
+                <rect x="9" y="9" width="6" height="6" rx="1"/>
+              </svg>
+            </button>
+            <button
+              :class="['toggle-btn', { active: viewMode === 'list' }]"
+              @click="viewMode = 'list'"
+              title="列表视图"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <rect x="1" y="2" width="14" height="2.5" rx="1"/>
+                <rect x="1" y="6.75" width="14" height="2.5" rx="1"/>
+                <rect x="1" y="11.5" width="14" height="2.5" rx="1"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 网格视图 -->
+    <div v-if="viewMode === 'grid'" v-loading="loading" class="file-grid">
+      <div v-if="!loading && filteredFileList.length === 0" class="empty-state">
+        <div class="empty-illustration">
+          <svg width="120" height="100" viewBox="0 0 120 100" fill="none">
+            <rect x="20" y="25" width="80" height="60" rx="6" fill="#f0f2f5" stroke="#d9dce1" stroke-width="1.5"/>
+            <path d="M20 35 L50 25 L85 30 L100 25 L100 85 L20 85 Z" fill="#e8eaed" opacity="0.5"/>
+            <rect x="35" y="45" width="50" height="6" rx="3" fill="#d9dce1"/>
+            <rect x="40" y="57" width="40" height="4" rx="2" fill="#e8eaed"/>
+            <circle cx="60" cy="15" r="8" fill="#e8eaed" stroke="#d9dce1" stroke-width="1.5"/>
+            <path d="M57 15 L60 12 L63 15" stroke="#d9dce1" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+            <line x1="60" y1="12" x2="60" y2="19" stroke="#d9dce1" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <p class="empty-title">暂无文件</p>
+        <p class="empty-hint">拖拽文件到此处，或点击「上传文件」按钮添加</p>
+      </div>
+
+      <div
+        v-for="file in filteredFileList"
+        :key="file.name"
+        :class="['file-card', { selected: isSelected(file) }]"
+      >
+        <!-- 选择框 -->
+        <div class="file-checkbox" @click.stop="toggleSelect(file)">
+          <div :class="['checkbox-inner', { checked: isSelected(file) }]">
+            <svg v-if="isSelected(file)" width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M2.5 6L5 8.5L9.5 3.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- 缩略图区域 -->
+        <div class="file-thumb" @click="handlePreview(file)">
+          <img
+            v-if="isImage(file.extension)"
+            :src="file.url"
+            :alt="file.name"
+            loading="lazy"
+          />
+          <div v-else :class="['file-icon-placeholder', getFileColorClass(file.extension)]">
+            <span :class="['iconfont', getFileIcon(file.extension), 'file-type-icon']"></span>
+            <span class="file-ext">.{{ file.extension }}</span>
+          </div>
+        </div>
+
+        <!-- 文件信息 -->
+        <div class="file-info">
+          <div class="file-name" :title="file.name">{{ file.name }}</div>
+          <div class="file-meta">
+            <span>{{ formatSize(file.size) }}</span>
+            <span>{{ formatDateShort(file.modifiedTime) }}</span>
+          </div>
+        </div>
+
+        <!-- 操作按钮浮层 -->
+        <div class="file-actions-overlay">
+          <button class="overlay-btn" @click.stop="handleCopyUrl(file)" title="复制链接">
+            <span class="iconfont icon-link" />
+          </button>
+          <button class="overlay-btn" @click.stop="handleDownload(file)" title="下载">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+              <path d="M7 1v8M7 9L4 6M7 9l3-3M2 12h10" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button class="overlay-btn danger" @click.stop="handleDelete(file)" title="删除">
+            <span class="iconfont icon-delete" />
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 列表视图 -->
+    <div v-if="viewMode === 'list'" v-loading="loading" class="file-list-view">
+      <div v-if="!loading && filteredFileList.length === 0" class="empty-state">
+        <div class="empty-illustration">
+          <svg width="120" height="100" viewBox="0 0 120 100" fill="none">
+            <rect x="20" y="25" width="80" height="60" rx="6" fill="#f0f2f5" stroke="#d9dce1" stroke-width="1.5"/>
+            <rect x="35" y="45" width="50" height="6" rx="3" fill="#d9dce1"/>
+            <rect x="40" y="57" width="40" height="4" rx="2" fill="#e8eaed"/>
+          </svg>
+        </div>
+        <p class="empty-title">暂无文件</p>
+        <p class="empty-hint">拖拽文件到此处，或点击「上传文件」按钮添加</p>
+      </div>
+
+      <div class="list-header" v-if="filteredFileList.length">
+        <div class="list-col list-col-check">
+          <div
+            :class="['checkbox-inner mini', { checked: selectedFiles.length === filteredFileList.length && filteredFileList.length > 0 }]"
+            @click="selectAll"
+          >
+            <svg v-if="selectedFiles.length === filteredFileList.length && filteredFileList.length > 0" width="10" height="10" viewBox="0 0 12 12" fill="none">
+              <path d="M2.5 6L5 8.5L9.5 3.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+        <div class="list-col list-col-name">文件名</div>
+        <div class="list-col list-col-size">大小</div>
+        <div class="list-col list-col-date">修改时间</div>
+        <div class="list-col list-col-actions">操作</div>
+      </div>
+
+      <div
+        v-for="file in filteredFileList"
+        :key="file.name"
+        :class="['list-row', { selected: isSelected(file) }]"
+        @click="handlePreview(file)"
+      >
+        <div class="list-col list-col-check" @click.stop>
+          <div
+            :class="['checkbox-inner mini', { checked: isSelected(file) }]"
+            @click.stop="toggleSelect(file)"
+          >
+            <svg v-if="isSelected(file)" width="10" height="10" viewBox="0 0 12 12" fill="none">
+              <path d="M2.5 6L5 8.5L9.5 3.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+        <div class="list-col list-col-name">
+          <div class="list-file-icon-wrap">
+            <img v-if="isImage(file.extension)" :src="file.url" class="list-thumb" loading="lazy" />
+            <span v-else :class="['iconfont', getFileIcon(file.extension), 'list-icon', getFileColorClass(file.extension)]"></span>
+          </div>
+          <span class="list-file-name" :title="file.name">{{ file.name }}</span>
+        </div>
+        <div class="list-col list-col-size">{{ formatSize(file.size) }}</div>
+        <div class="list-col list-col-date">{{ formatDate(file.modifiedTime) }}</div>
+        <div class="list-col list-col-actions" @click.stop>
+          <button class="list-action-btn" @click.stop="handleCopyUrl(file)" title="复制链接">
+            <span class="iconfont icon-link" />
+          </button>
+          <button class="list-action-btn" @click.stop="handleDownload(file)" title="下载">
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="currentColor">
+              <path d="M7 1v8M7 9L4 6M7 9l3-3M2 12h10" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button class="list-action-btn danger" @click.stop="handleDelete(file)" title="删除">
+            <span class="iconfont icon-delete" />
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 分页 -->
+    <div v-if="pagination.total > 0" class="pagination-wrap">
+      <el-pagination
+        v-model:current-page="pagination.page"
+        v-model:page-size="pagination.pageSize"
+        :total="pagination.total"
+        :page-sizes="[12, 24, 48, 96]"
+        layout="total, sizes, prev, pager, next"
+        @current-change="handlePageChange"
+        @size-change="handleSizeChange"
+      />
+    </div>
+
+    <!-- 预览弹窗 (Lightbox) -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="previewVisible" class="lightbox-overlay" @click.self="previewVisible = false">
+          <div class="lightbox-container">
+            <!-- 关闭 -->
+            <button class="lightbox-close" @click="previewVisible = false">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 4L16 16M16 4L4 16" stroke-linecap="round"/>
+              </svg>
+            </button>
+
+            <!-- 文件名 -->
+            <div class="lightbox-title">{{ previewName }}</div>
+
+            <!-- 上一张 -->
+            <button
+              v-if="previewIndex > 0"
+              class="lightbox-nav lightbox-prev"
+              @click="previewPrev"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M15 19L8 12L15 5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+
+            <!-- 内容 -->
+            <div class="lightbox-content">
+              <img
+                v-if="previewType === 'image'"
+                :src="previewUrl"
+                :alt="previewName"
+                class="lightbox-image"
+              />
+              <audio
+                v-else-if="previewType === 'audio'"
+                :src="previewUrl"
+                controls
+                autoplay
+                class="lightbox-audio"
+              />
+              <video
+                v-else-if="previewType === 'video'"
+                :src="previewUrl"
+                controls
+                autoplay
+                class="lightbox-video"
+              />
+            </div>
+
+            <!-- 下一张 -->
+            <button
+              v-if="previewIndex < previewableFiles.length - 1"
+              class="lightbox-nav lightbox-next"
+              @click="previewNext"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M9 5L16 12L9 19" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+
+            <!-- 计数 -->
+            <div class="lightbox-counter" v-if="previewableFiles.length > 1">
+              {{ previewIndex + 1 }} / {{ previewableFiles.length }}
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+  </div>
+</template>
+
+<style scoped>
+.file-library {
+  min-height: 100%;
+  position: relative;
+}
+
+/* ========== 拖拽上传遮罩 ========== */
+.drag-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(26, 26, 46, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drag-overlay-content {
+  text-align: center;
+  color: #fff;
+}
+
+.drag-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 20px;
+  border: 3px dashed rgba(255,255,255,0.5);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pulse-ring 1.5s ease-in-out infinite;
+}
+
+.drag-icon .iconfont {
+  font-size: 32px;
+  color: #fff;
+}
+
+.drag-title {
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.drag-hint {
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+@keyframes pulse-ring {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.08); opacity: 0.85; }
+}
+
+/* ========== 上传进度 ========== */
+.upload-progress-bar {
+  background: #fff;
+  border: 1px solid #e4e7ed;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.upload-progress-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #606266;
+  margin-bottom: 8px;
+}
+
+.upload-progress-info .iconfont {
+  color: var(--el-color-primary, #409eff);
+}
+
+/* ========== 头部区域 ========== */
+.header-section {
+  margin-bottom: 20px;
+}
+
+.storage-overview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.storage-info {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.storage-label {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.storage-usage {
+  font-size: 14px;
+  font-weight: 600;
+  color: #606266;
+  background: #f0f2f5;
+  padding: 2px 10px;
+  border-radius: 12px;
+}
+
+.storage-count {
+  font-size: 13px;
+  color: #909399;
+}
+
+/* ========== 分类标签 ========== */
+.controls-section {
+  margin-bottom: 16px;
+}
+
+.category-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.category-tabs::-webkit-scrollbar { display: none; }
+
+.cat-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: none;
+  border: 1.5px solid #e4e7ed;
+  border-radius: 18px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #606266;
+  white-space: nowrap;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.cat-tab:hover {
+  border-color: #c0c4cc;
+  background: #fafafa;
+}
+
+.cat-tab.active {
+  background: #1a1a2e;
+  border-color: #1a1a2e;
+  color: #fff;
+}
+
+.cat-tab-badge {
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 18px;
+  height: 18px;
+  line-height: 18px;
+  text-align: center;
+  border-radius: 9px;
+  background: #f0f2f5;
+  color: #909399;
+  padding: 0 5px;
+}
+
+.cat-tab.active .cat-tab-badge {
+  background: rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.85);
+}
+
+/* ========== 工具栏 ========== */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.upload-btn {
+  border-radius: 10px !important;
+}
+
+/* 搜索框 */
+.search-box {
+  position: relative;
+  width: 200px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  color: #c0c4cc;
+  pointer-events: none;
+}
+
+.search-input {
+  width: 100%;
+  height: 32px;
+  padding: 0 12px 0 32px;
+  border: 1.5px solid #e4e7ed;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #303133;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.search-input::placeholder {
+  color: #c0c4cc;
+}
+
+.search-input:focus {
+  border-color: #909399;
+}
+
+/* 视图切换 */
+.view-toggle {
+  display: flex;
+  background: #f0f2f5;
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.toggle-btn {
+  width: 30px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #909399;
+  transition: all 0.15s;
+}
+
+.toggle-btn.active {
+  background: #fff;
+  color: #303133;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.toggle-btn:hover:not(.active) {
+  color: #606266;
+}
+
+/* ========== 文件网格 ========== */
+.file-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 14px;
+  min-height: 200px;
+}
+
+.empty-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.empty-illustration {
+  margin-bottom: 16px;
+  opacity: 0.7;
+}
+
+.empty-title {
+  font-size: 15px;
+  color: #606266;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.empty-hint {
+  font-size: 13px;
+  color: #b0b3b8;
+}
+
+/* ========== 文件卡片 ========== */
+.file-card {
+  position: relative;
+  background: #fff;
+  border: 1.5px solid #ebeef5;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s;
+}
+
+.file-card:hover {
+  border-color: #d0d3d9;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+}
+
+.file-card.selected {
+  border-color: #1a1a2e;
+  box-shadow: 0 0 0 2px rgba(26, 26, 46, 0.1);
+}
+
+/* 选择框 */
+.file-checkbox {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 3;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.file-card:hover .file-checkbox,
+.file-card.selected .file-checkbox {
+  opacity: 1;
+}
+
+.checkbox-inner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  backdrop-filter: blur(4px);
+}
+
+.checkbox-inner.checked {
+  background: #1a1a2e;
+  border-color: #1a1a2e;
+}
+
+.checkbox-inner.mini {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #d0d3d9;
+  background: #fff;
+  cursor: pointer;
+  backdrop-filter: none;
+}
+
+.checkbox-inner.mini.checked {
+  background: #1a1a2e;
+  border-color: #1a1a2e;
+}
+
+/* 缩略图 */
+.file-thumb {
+  height: 152px;
+  background: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  position: relative;
+}
+
+.file-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s cubic-bezier(0.25,0.46,0.45,0.94);
+}
+
+.file-card:hover .file-thumb img {
+  transform: scale(1.06);
+}
+
+.file-icon-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px;
+}
+
+.file-type-icon {
+  font-size: 36px;
+  opacity: 0.7;
+}
+
+.color-image .file-type-icon { color: #67c23a; }
+.color-audio .file-type-icon { color: #e6a23c; }
+.color-video .file-type-icon { color: #409eff; }
+.color-pdf .file-type-icon { color: #f56c6c; }
+.color-word .file-type-icon { color: #409eff; }
+.color-excel .file-type-icon { color: #67c23a; }
+.color-archive .file-type-icon { color: #e6a23c; }
+.color-other .file-type-icon { color: #909399; }
+
+.file-ext {
+  font-size: 11px;
+  color: #909399;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  background: #ebeef5;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* 文件信息 */
+.file-info {
+  padding: 10px 12px 8px;
+}
+
+.file-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #303133;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.file-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #b0b3b8;
+}
+
+/* 操作按钮浮层 */
+.file-actions-overlay {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.file-card:hover .file-actions-overlay {
+  opacity: 1;
+}
+
+.overlay-btn {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: rgba(255,255,255,0.92);
+  border-radius: 8px;
+  cursor: pointer;
+  color: #606266;
+  font-size: 13px;
+  transition: all 0.15s;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.overlay-btn:hover {
+  background: #fff;
+  color: #303133;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+
+.overlay-btn.danger:hover {
+  background: #fff;
+  color: #f56c6c;
+}
+
+/* ========== 列表视图 ========== */
+.file-list-view {
+  min-height: 200px;
+}
+
+.list-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #909399;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.list-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.list-row:hover {
+  background: #f8f9fa;
+}
+
+.list-row.selected {
+  background: #f0f2f5;
+}
+
+.list-col-check { width: 36px; flex-shrink: 0; }
+.list-col-name { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
+.list-col-size { width: 90px; flex-shrink: 0; font-size: 13px; color: #909399; }
+.list-col-date { width: 150px; flex-shrink: 0; font-size: 13px; color: #909399; }
+.list-col-actions { width: 110px; flex-shrink: 0; display: flex; gap: 4px; justify-content: flex-end; }
+
+.list-file-icon-wrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #f5f7fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.list-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.list-icon {
+  font-size: 18px;
+}
+
+.list-icon.color-image { color: #67c23a; }
+.list-icon.color-audio { color: #e6a23c; }
+.list-icon.color-video { color: #409eff; }
+.list-icon.color-pdf { color: #f56c6c; }
+.list-icon.color-word { color: #409eff; }
+.list-icon.color-excel { color: #67c23a; }
+.list-icon.color-archive { color: #e6a23c; }
+.list-icon.color-other { color: #909399; }
+
+.list-file-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #303133;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.list-action-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #909399;
+  font-size: 13px;
+  transition: all 0.15s;
+  opacity: 0;
+}
+
+.list-row:hover .list-action-btn {
+  opacity: 1;
+}
+
+.list-action-btn:hover {
+  background: #ebeef5;
+  color: #303133;
+}
+
+.list-action-btn.danger:hover {
+  background: #fef0f0;
+  color: #f56c6c;
+}
+
+/* ========== 分页 ========== */
+.pagination-wrap {
+  margin-top: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+/* ========== Lightbox ========== */
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.88);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  z-index: 10;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.1);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  color: #fff;
+  transition: background 0.2s;
+}
+
+.lightbox-close:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+.lightbox-title {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  right: 80px;
+  color: rgba(255,255,255,0.8);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 10;
+}
+
+.lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.1);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  color: #fff;
+  transition: all 0.2s;
+}
+
+.lightbox-nav:hover {
+  background: rgba(255,255,255,0.22);
+}
+
+.lightbox-prev { left: 20px; }
+.lightbox-next { right: 20px; }
+
+.lightbox-content {
+  max-width: 90vw;
+  max-height: 85vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox-image {
+  max-width: 90vw;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: 4px;
+  user-select: none;
+}
+
+.lightbox-audio {
+  width: 400px;
+  max-width: 90vw;
+}
+
+.lightbox-video {
+  max-width: 90vw;
+  max-height: 85vh;
+  border-radius: 4px;
+}
+
+.lightbox-counter {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255,255,255,0.6);
+  font-size: 13px;
+  font-weight: 500;
+  background: rgba(0,0,0,0.3);
+  padding: 4px 14px;
+  border-radius: 12px;
+}
+
+/* ========== 动画 ========== */
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+}
+
+.slide-down-enter-active, .slide-down-leave-active {
+  transition: all 0.3s ease;
+}
+.slide-down-enter-from, .slide-down-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+/* ========== 移动端适配 ========== */
+@media (max-width: 768px) {
+  .category-tabs {
+    flex-wrap: nowrap;
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar-left {
+    flex-wrap: wrap;
+  }
+
+  .toolbar-right {
+    justify-content: space-between;
+  }
+
+  .search-box {
+    flex: 1;
+    width: auto;
+  }
+
+  .file-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+  }
+
+  .file-thumb {
+    height: 120px;
+  }
+
+  .file-checkbox {
+    opacity: 1;
+  }
+
+  .file-actions-overlay {
+    opacity: 1;
+  }
+
+  /* 列表视图隐藏日期列 */
+  .list-col-date {
+    display: none;
+  }
+
+  .list-action-btn {
+    opacity: 1;
+  }
+
+  .lightbox-nav {
+    width: 36px;
+    height: 36px;
+  }
+
+  .lightbox-prev { left: 8px; }
+  .lightbox-next { right: 8px; }
+
+  .storage-label {
+    font-size: 17px;
+  }
+}
+
+@media (max-width: 480px) {
+  .file-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .file-thumb {
+    height: 100px;
+  }
+
+  .file-type-icon {
+    font-size: 28px;
+  }
+
+  .list-col-size {
+    display: none;
+  }
+}
+</style>
